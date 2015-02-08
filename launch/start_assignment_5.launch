@@ -4,7 +4,7 @@
 
 <node pkg = "gscam" type = "gscam" name = "web_cam">
 	<param name = "camera_name" value = "web_cam" />
-	<remap from = "image" to = "camera/image_raw" />
+	<remap from = "camera/image_raw" to = "camera/visible/image" />
 </node>
 
 </launch>
