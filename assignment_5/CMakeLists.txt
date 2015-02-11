@@ -9,6 +9,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   message_generation
+    cv_bridge
+    std_msgs
+    image_transport
 )
 
 ## System dependencies are found with CMake's conventions
@@ -95,6 +98,7 @@ catkin_package(
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
@@ -121,8 +125,9 @@ target_link_libraries(motion_mode_keyboard
   ${catkin_LIBRARIES}
 )
 target_link_libraries(motion_detector
-  ${catkin_LIBRARIES}
+  ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
 )
+
 
 #############
 ## Install ##

@@ -51,5 +51,10 @@ int main(int argc, char **argv)
     }
   }
 
+  tcgetattr(STDIN_FILENO, &termttr);
+  termttr.c_lflag &= (ICANON | ECHO);
+  tcsetattr(STDIN_FILENO, TCSANOW, &termttr);
+
+
   return 0;
 }
