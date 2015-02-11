@@ -8,6 +8,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/tracking.hpp>
 
+#include <cmath>
+
 #define CROP_WIDTH 320
 #define CROP_HEIGHT 240
 
@@ -18,7 +20,8 @@
 
 using namespace cv;
 
-static void drawMotionIntensity(const Mat& flow, Mat& cflowmap, int step,
+static void drawMotionIntensity(const Mat& flow, Mat& A);
+static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
                     double, const Scalar& color);
 
 class MotionDetector
@@ -82,15 +85,19 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
   {
     case FOFA: 
         if (!prev.empty()){
-            calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 4, 3, 5, 5, 1.1, 0);
+            calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
 
             cvtColor(prev, cflow, COLOR_GRAY2BGR);
             uflow.copyTo(flow);
             drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
             
+            //cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
+
+            //drawMotionIntensity(flow, intensityMap);
             cv::waitKey(1);
 
             imshow(FLOW_WINDOW, cflow);
+            //imshow(FLOW_WINDOW, intensityMap);
         }
         break;
     
@@ -128,17 +135,26 @@ static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
         }
 }
 
-static void drawMotionIntensity(const Mat& flow, Mat& intensityMap, int step,
-                    double, const Scalar& color)
+static void drawMotionIntensity(const Mat& flow, Mat& A)
 {
     for(int i = 0; i < flow.rows; i++)
         for(int j = 0; j < flow.cols; j++)
         {
-            const Point2f& pointVector = flow.at<Point2f>(i, j);
+            //const Point2f& pointVector = flow.at<Point2f>(i, j);
 
-            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
-                 color);
-            circle(cflowmap, Point(x,y), 2, color, -1);
+            //line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+            //     color);
+            //circle(cflowmap, Point(x,y), 2, color, -1);
+
+            int x = flow.data[flow.step[0]*i + flow.step[1]*j + 0];
+            int y = flow.data[flow.step[0]*i + flow.step[1]*j + 1];
+
+            //std::cout << "x: " << x << std::endl;
+            //std::cout << "y: " << y << std::endl;
+
+
+
+            A.data[A.step[0]*i + A.step[1]*j + 0] = sqrt(x*x + y*y);
         }
 }
 
