@@ -11,7 +11,7 @@
 
   <!-- Start our service node and opencv node -->
   <node pkg = "assignment_5" type = "motion_mode_keyboard" name = "motion_mode_keyboard"
-    output="screen" />
+    output="screen" launch-prefix="gnome-terminal -e" />
   <node pkg = "assignment_5" type = "motion_detector" name = "motion_detector"
     output="screen" />
 
