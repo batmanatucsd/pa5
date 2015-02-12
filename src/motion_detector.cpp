@@ -19,7 +19,7 @@
 
 #define FLOW_WINDOW_ARROWS "Flow Arrows"
 #define FLOW_WINDOW_BINARY "Flow Binary"
-#define THRESH_MAG 1 //threshold for displaying farneback optical flow as a binary image
+#define THRESH_MAG 3 //threshold for displaying farneback optical flow as a binary image
 #define MOG2_WINDOW "MOG2"
 
 using namespace cv;
@@ -42,7 +42,8 @@ class MotionDetector
     cv::Mat testFlow;
 
     // MOG2 related files
-    cv::Ptr<cv::BackgroundSubtractor> bsmog;
+    //cv::Ptr<cv::BackgroundSubtractor> bsmog;
+    cv::BackgroundSubtractorMOG2 bsmog;
     cv::Mat fg_mask;
 
     void callback_crop(const sensor_msgs::ImageConstPtr& msg);
@@ -51,12 +52,12 @@ class MotionDetector
     MotionDetector(ros::NodeHandle nh) : it(nh)
     {
         image_sub = it.subscribe("/camera/image_raw", 1, &MotionDetector::callback_crop, this);
-        image_pub = it.advertise("/camera/image_raw_cropped", 1);
+        image_pub = it.advertise("/camera/image_motion_boxed", 1);
 
         //cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
         algorithm_mode = FOFA; //intializes the algorithm to FOFA
 
-        bsmog = cv::createBackgroundSubtractorMOG2();
+        //bsmog = cv::createBackgroundSubtractorMOG2();
     }
 
     bool switch_callback(assignment_5::model_msg::Request &req,
@@ -75,7 +76,6 @@ class MotionDetector
 
 void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 {
-<<<<<<< HEAD
   cv_bridge::CvImagePtr cv_ptr;
   try
   {   //copy the data //TODO maybe change back to copy
@@ -114,8 +114,9 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             }
             break;
         case MOG2:
-            bsmog->apply(cv_ptr->image, fg_mask);
+            bsmog(cv_ptr->image, fg_mask);
             cv::imshow(MOG2_WINDOW, fg_mask);
+            cv::waitKey(1);
             break;
     }
 
