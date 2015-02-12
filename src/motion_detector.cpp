@@ -10,6 +10,7 @@
 #include <opencv2/video/background_segm.hpp>
 
 #include <cmath>
+#include <vector>
 
 #define CROP_WIDTH 320
 #define CROP_HEIGHT 240
@@ -45,8 +46,9 @@ class MotionDetector
     //cv::Ptr<cv::BackgroundSubtractor> bsmog;
     cv::BackgroundSubtractorMOG2 bsmog;
     cv::Mat fg_mask;
+    std::vector<std::vector<cv::Point> > contours;↲
 
-    void callback_crop(const sensor_msgs::ImageConstPtr& msg);
+        void callback_crop(const sensor_msgs::ImageConstPtr& msg);
 
     public:
     MotionDetector(ros::NodeHandle nh) : it(nh)
@@ -111,7 +113,14 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             }
             break;
         case MOG2:
-            bsmog(cv_ptr->image, fg_mask);
+            contours.clear();
+            bsmog(cv_ptr->image, fg_mask, -1);
+            bsmog.set("nmixtures", 3);
+            bsmog.set("detectShadows", 1);
+            cv::erode(fg_mask,fg_mask,cv::Mat());
+            cv::dilate(fg_mask,fg_mask,cv::Mat());
+            cv::findContours(fg_mask,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
+            cv::drawContours(cv_ptr->image,contours,-1,cv::Scalar(0,0,255),2);
             cv::imshow(MOG2_WINDOW, fg_mask);
             cv::waitKey(1);
             break;
