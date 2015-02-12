@@ -104,6 +104,11 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
                 cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
                 //populates the intensityMap with the binary image for flow
                 drawMotionIntensity(flow, intensityMap);
+
+                //remove white specks (noise)
+                erode(intensityMap, intensityMap, Mat(), Point(-1,-1), 5);
+                dilate(intensityMap, intensityMap, Mat(), Point(-1,-1), 25);
+
                 imshow(FLOW_WINDOW_BINARY, intensityMap);
 
                 cv::waitKey(1);
