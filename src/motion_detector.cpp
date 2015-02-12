@@ -56,7 +56,7 @@ class MotionDetector
     MotionDetector(ros::NodeHandle n): it(n)
     {
         image_sub = it.subscribe("/my_camera/image_raw", 1, &MotionDetector::callback_image, this);
-        image_pub = it.advertise("/my_camera/image_raw_cropped", 1);
+        image_pub = it.advertise("/my_camera/image_motion_boxed", 1);
 
         algorithm_mode = FOFA; //intializes the algorithm to FOFA
     }
