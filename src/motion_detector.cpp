@@ -109,7 +109,7 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
                 //remove white specks (noise)
                 erode(intensityMap, intensityMap, kernel, Point(-1,-1), 7);
                 //dilate what's left to help find blob of body
-                //dilate(intensityMap, intensityMap, kernel, Point(-1,-1), 30);
+                dilate(intensityMap, intensityMap, kernel, Point(-1,-1), 30);
                 findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
                 //function I wrote
                 drawRectFromContours(intensityMap, contours);
