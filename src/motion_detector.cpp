@@ -124,7 +124,7 @@ void MotionDetector::callback_image(const sensor_msgs::ImageConstPtr& msg)
         case MOG2:
             bsmog(frame_gray, fg_mask, -1);
             bsmog.set("nmixtures", 3);
-            cv::erode(fg_mask, fg_mask, kernel, cv::Point(-1,-1), 7);
+            cv::erode(fg_mask, fg_mask, kernel, cv::Point(-1,-1), 10);
             cv::dilate(fg_mask, fg_mask, kernel, cv::Point(-1,-1), 32);
             cv::findContours(fg_mask,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
             std::vector<std::vector<cv::Point> > contours_poly( contours.size() );
