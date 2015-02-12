@@ -1,11 +1,11 @@
 <launch>
-  <arg name="cam_name" value="camera" />
+  <arg name="cam_name" value="my_camera" />
 
   <!-- Start the GSCAM node -->
-  <env name="GSCAM_CONFIG" value="v4l2src device=/dev/video1 ! video/x-raw-yuv,framerate=30/1,width=640,height=480 ! ffmpegcolorspace " />
+  <env name="GSCAM_CONFIG" 
+      value="v4l2src device=/dev/video0 ! video/x-raw-rgb,framerate=30/1,width=640,height=480 ! ffmpegcolorspace " />
   <node pkg="gscam" type="gscam" name="$(arg cam_name)">
     <param name="camera_name" value="$(arg cam_name)" />
-    <!--<param name="camera_info_url" value="package://localcam/calibrations/${NAME}.yaml" />-->
     <remap from="camera/image_raw" to="$(arg cam_name)/image_raw" />
   </node>
 
@@ -21,9 +21,7 @@
     </node>
     
     <node pkg="image_view" type="image_view" name="image_motion_boxed" >
-        <remap from="image" to="/camera/image_motion_boxed" />
+        <remap from="image" to="/$(arg cam_name)/image_motion_boxed" />
     </node>
-
-
 
 </launch>

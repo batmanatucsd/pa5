@@ -18,25 +18,27 @@
 #define FOFA 91 // Key code
 #define MOG2 93 // Key code
 
-#define FLOW_WINDOW_ARROWS "Flow Arrows"
-#define FLOW_WINDOW_BINARY "Flow Binary"
-#define THRESH_MAG 3 //threshold for displaying farneback optical flow as a binary image
-#define MOG2_WINDOW "MOG2"
+#define THRESH_MAG 3
 
-using namespace cv;
+#define LABEL_FOFA "FOFA"
+#define LABEL_MOG2 "MOG2"
 
-static void drawMotionIntensity(const Mat& flow, Mat& A);
-static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
-        double, const Scalar& color);
 
-static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> > &contours);
+// Forward Declaration
+static void drawMotionIntensity(const cv::Mat&, cv::Mat&);
+static void drawOptFlowMap(const cv::Mat&, cv::Mat&,
+        int, double, const cv::Scalar&);
+static void drawRectFromContours(cv::Mat&,
+        std::vector<std::vector<cv::Point> >&);
 
 class MotionDetector
 {
     image_transport::ImageTransport it;
     image_transport::Publisher image_pub;
     image_transport::Subscriber image_sub;
+    std::vector<std::vector<cv::Point> > contours;
 
+    // FOFA related variables
     int algorithm_mode;
     cv::Mat prev;
     cv::Mat flow;
@@ -45,20 +47,17 @@ class MotionDetector
     cv::Mat testFlow;
 
     // MOG2 related files
-    //cv::Ptr<cv::BackgroundSubtractor> bsmog;
     cv::BackgroundSubtractorMOG2 bsmog;
     cv::Mat fg_mask;
-    std::vector<std::vector<cv::Point> > contours;
 
-    void callback_crop(const sensor_msgs::ImageConstPtr& msg);
+    void callback_image(const sensor_msgs::ImageConstPtr& msg);
 
     public:
-    MotionDetector(ros::NodeHandle nh) : it(nh)
+    MotionDetector(ros::NodeHandle n): it(n)
     {
-        image_sub = it.subscribe("/camera/image_raw", 1, &MotionDetector::callback_crop, this);
-        image_pub = it.advertise("/camera/image_motion_boxed", 1);
+        image_sub = it.subscribe("/my_camera/image_raw", 1, &MotionDetector::callback_image, this);
+        image_pub = it.advertise("/my_camera/image_raw_cropped", 1);
 
-        //cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
         algorithm_mode = FOFA; //intializes the algorithm to FOFA
     }
 
@@ -67,117 +66,116 @@ class MotionDetector
     {
         switch (algorithm_mode = req.model)
         {
-            case FOFA: ROS_INFO("requested to use FOFA");
-                       break;
-            case MOG2: ROS_INFO("requested to use MOG2");
-                       break;
+            case FOFA: ROS_INFO("requested to use FOFA"); break;
+            case MOG2: ROS_INFO("requested to use MOG2"); break;
             default: break;
         }
+        return true;
     }
 };
 
-void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
+void MotionDetector::callback_image(const sensor_msgs::ImageConstPtr& msg)
 {
     cv_bridge::CvImagePtr frame_original_ptr;
-    try
-    {   //copy the data //TODO maybe change back to copy
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+            cv::Size(3,3), cv::Point(-1,-1));
+    // Reset Contours
+    contours.clear();
+
+    try {
         frame_original_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
     }
-    catch (cv_bridge::Exception& e)
-    {
+    catch (cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
 
     //convert to grayscale and make a copy
-    Mat frame_gray = frame_original_ptr->image;
-    cvtColor(frame_gray, frame_gray, CV_RGB2GRAY);
+    cv::Mat frame_gray = frame_original_ptr->image;
+    cv::cvtColor(frame_gray, frame_gray, CV_RGB2GRAY);
 
-    switch (algorithm_mode)
-    {
+    //blur the image before applying algorithm
+    cv::GaussianBlur(frame_gray, frame_gray, cv::Size(7, 7), 7, cv::BORDER_DEFAULT);
+    switch (algorithm_mode) {
         case FOFA:
             if (!prev.empty()){
-
-                //blur the image before applying optical flow
-                cv::GaussianBlur(frame_gray, frame_gray, cv::Size(7, 7), 7, BORDER_DEFAULT);
-
-                calcOpticalFlowFarneback(prev, frame_gray, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
-
-                cvtColor(prev, cflow, COLOR_GRAY2BGR);
+                cv::calcOpticalFlowFarneback(prev, frame_gray, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
+                cv::cvtColor(prev, cflow, cv::COLOR_GRAY2BGR);
                 uflow.copyTo(flow);
                 //draws arrows over the prev grayscale frames (cflow)
-                drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
-                imshow(FLOW_WINDOW_ARROWS, cflow);
-                cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
+                drawOptFlowMap(flow, cflow, 16, 1.5, cv::Scalar(0, 255, 0));
+                //imshow(FLOW_WINDOW_ARROWS, cflow);
+                cv::Mat intensityMap = cv::Mat::zeros(flow.rows, flow.cols, CV_8U);
                 //populates the intensityMap with the binary image for flow
                 drawMotionIntensity(flow, intensityMap);
-                cv::Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(3,3), Point(-1,-1));
                 //remove white specks (noise)
-                erode(intensityMap, intensityMap, kernel, Point(-1,-1), 7);
+                cv::erode(intensityMap, intensityMap, kernel, cv::Point(-1,-1), 7);
                 //dilate what's left to help find blob of body
-                dilate(intensityMap, intensityMap, kernel, Point(-1,-1), 30);
-                findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-
+                cv::dilate(intensityMap, intensityMap, kernel, cv::Point(-1,-1), 30);
+                cv::findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
                 //draw rectanle on the original image
                 drawRectFromContours(frame_original_ptr->image, contours);
-
                 //drawContours(intensityMap, contours, -1, cv::Scalar(0,0,255), 3);
                 //rectangle(intensityMap, Point(5, 5), Point(100,100), Scalar(255,255,255), 5);
-
-                imshow(FLOW_WINDOW_BINARY, intensityMap);
-
-                cv::waitKey(1);
-
+                //imshow(FLOW_WINDOW_BINARY, intensityMap);
             }
+            //label = LABEL_FOFA;
             break;
         case MOG2:
             bsmog(frame_gray, fg_mask, -1);
             bsmog.set("nmixtures", 3);
-            bsmog.set("detectShadows", 1);
-            cv::erode(fg_mask,fg_mask,cv::Mat());
-            cv::dilate(fg_mask,fg_mask,cv::Mat());
+            cv::erode(fg_mask, fg_mask, kernel, cv::Point(-1,-1), 7);
+            cv::dilate(fg_mask, fg_mask, kernel, cv::Point(-1,-1), 32);
             cv::findContours(fg_mask,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
-            cv::drawContours(frame_gray,contours,-1,cv::Scalar(0,0,255),2);
-            cv::imshow(MOG2_WINDOW, fg_mask);
-            cv::waitKey(1);
+            std::vector<std::vector<cv::Point> > contours_poly( contours.size() );
+            std::vector<cv::Rect> boundRect( contours.size() );
+            for( int i = 0; i < contours.size(); i++ ) {
+                cv::approxPolyDP( cv::Mat(contours[i]), contours_poly[i], 3, true );
+                boundRect[i] = cv::boundingRect( cv::Mat(contours_poly[i]) );
+                cv::rectangle(frame_original_ptr->image, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(255, 0, 0), 2, 8, 0 );
+            }
+            //cv::imshow(MOG2_WINDOW, fg_mask);
+            //label = LABEL_MOG2;
             break;
     }
-    
-    contours.clear();
+    cv::waitKey(1);
+
+    // Add algorithm label to the image
+    //rectangle(frame_original_ptr->image, cv::Point(10, 2), cv::Point(100,20),
+    //        cv::Scalar(255,255,255), -1);
+    //putText(cv_ptr->image, label, cv::Point(15, 15),
+    //        cv::FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
+
     prev = frame_gray.clone();
     image_pub.publish(frame_original_ptr->toImageMsg());
 }
 
-static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
-        double, const Scalar& color)
+static void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step,
+        double, const cv::Scalar& color)
 {
-    for(int y = 0; y < cflowmap.rows; y += step)
-        for(int x = 0; x < cflowmap.cols; x += step)
-        {
-            const Point2f& fxy = flow.at<Point2f>(y, x);
-            line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
+    for(int y = 0; y < cflowmap.rows; y += step) {
+        for(int x = 0; x < cflowmap.cols; x += step) {
+            const cv::Point2f& fxy = flow.at<cv::Point2f>(y, x);
+            cv::line(cflowmap, cv::Point(x,y), cv::Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
                     color);
-            circle(cflowmap, Point(x,y), 2, color, -1);
+            cv::circle(cflowmap, cv::Point(x,y), 2, color, -1);
         }
+    }
 }
 
-static void drawMotionIntensity(const Mat& flow, Mat& A)
+static void drawMotionIntensity(const cv::Mat& flow, cv::Mat& A)
 {
     for(int i = 0; i < flow.rows; i++) {
-        for(int j = 0; j < flow.cols; j++)
-        {
-            const Point2f& v = flow.at<Point2f>(i, j);
+        for(int j = 0; j < flow.cols; j++) {
+            const cv::Point2f& v = flow.at<cv::Point2f>(i, j);
             const int mag = sqrt(v.x*v.x + v.y*v.y);
             //line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
             //     color);
             //circle(cflowmap, Point(x,y), 2, color, -1);
-
             //int x = flow.data[flow.step[0]*i + flow.step[1]*j + 0];
             //int y = flow.data[flow.step[0]*i + flow.step[1]*j + 1];
-
             //std::cout << "x: " << x << std::endl;
             //std::cout << "y: " << y << std::endl;
-
             //A.data[A.step[0]*i + A.step[1]*j + 0] = sqrt(x*x + y*y);
             if (mag > THRESH_MAG){
                 A.data[A.step[0]*i + A.step[1]*j + 0] = 255;
@@ -186,14 +184,14 @@ static void drawMotionIntensity(const Mat& flow, Mat& A)
     }
 }
 
-static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> > &contours)
+static void drawRectFromContours(cv::Mat& frame, std::vector<std::vector<cv::Point> > &contours)
 {
     //only draw rectangle on first contour
-    std::vector<Point> contour = contours.front();
+    std::vector<cv::Point> contour = contours.front();
     int maxSize = 0;
 
     //find the largest contour
-    for (std::vector<std::vector<Point> >::iterator it = contours.begin() ; it != contours.end(); ++it){
+    for (std::vector<std::vector<cv::Point> >::iterator it = contours.begin() ; it != contours.end(); ++it){
         if (it->size() > maxSize){
             contour = *it;
             maxSize = it->size();
@@ -205,7 +203,7 @@ static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> 
     int minY = INT_MAX;
     int maxY = 0;
 
-    Point point;
+    cv::Point point;
     for (int i = 0; i < contour.size(); i++){
         point = contour.at(i);
 
@@ -223,16 +221,16 @@ static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> 
         }
     }
 
-    rectangle(frame, Point(minX, minY), Point(maxX,maxY), Scalar(0,0,255), 5);
-
+    cv::rectangle(frame, cv::Point(minX, minY), cv::Point(maxX,maxY), cv::Scalar(0,0,255), 5);
 }
+
 int main(int argc, char **argv) {
     ros::init(argc, argv, "motion_detector");
-    ros::NodeHandle n;
+    ros::NodeHandle nh;
 
-    MotionDetector motion_detector(n);
+    MotionDetector motion_detector(nh);
 
-    ros::ServiceServer switch_service = n.advertiseService("model_switch",
+    ros::ServiceServer switch_service = nh.advertiseService("model_switch",
             &MotionDetector::switch_callback, &motion_detector);
     ros::spin();
 

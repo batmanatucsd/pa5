@@ -7,14 +7,14 @@ set(OpenCV_DIR "/usr/local/share/OpenCV/")
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
-  roscpp
-  std_msgs
-  message_generation
-    cv_bridge
+    roscpp
     std_msgs
+    message_generation
+    OpenCV
+    sensor_msgs
+    cv_bridge
     image_transport
-)
+    )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -57,10 +57,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
- add_service_files(
-   FILES
-   model_msg.srv
- )
+add_service_files(
+    FILES
+    model_msg.srv
+    )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -71,9 +71,9 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-   DEPENDENCIES
-   std_msgs
- )
+    DEPENDENCIES
+    std_msgs
+    )
 
 ###################################
 ## catkin specific configuration ##
@@ -85,11 +85,11 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES assignment_5
-#  CATKIN_DEPENDS cv_bridge roscpp std_msgs
-#  DEPENDS system_lib
-)
+    #  INCLUDE_DIRS include
+    #  LIBRARIES assignment_5
+    #  CATKIN_DEPENDS cv_bridge roscpp std_msgs
+    #  DEPENDS system_lib
+    )
 
 ###########
 ## Build ##
@@ -99,9 +99,9 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
-  ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
-)
+    ${catkin_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    )
 
 ## Declare a cpp library
 # add_library(assignment_5
@@ -124,11 +124,11 @@ add_dependencies(motion_detector src/motion_detector)
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(motion_mode_keyboard
-  ${catkin_LIBRARIES}
-)
+    ${catkin_LIBRARIES}
+    )
 target_link_libraries(motion_detector
-  ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
-)
+    ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
+    )
 
 
 #############
