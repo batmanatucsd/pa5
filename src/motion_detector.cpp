@@ -19,6 +19,7 @@
 
 #define FLOW_WINDOW_ARROWS "Flow Arrows"
 #define FLOW_WINDOW_BINARY "Flow Binary"
+#define MOG2_WINDOW "MOG2"
 #define THRESH_MAG 25 //threshold for displaying farneback optical flow as a binary image
 
 using namespace cv;
@@ -38,9 +39,11 @@ class MotionDetector
     cv::Mat flow;
     cv::Mat uflow;
     cv::Mat cflow;
-
     cv::Mat testFlow;
 
+    // MOG2 related files
+    cv::Ptr<cv::BackgroundSubtractor> bsmog;
+    cv::Mat fg_mask;
 
     void callback_crop(const sensor_msgs::ImageConstPtr& msg);
 
@@ -53,6 +56,7 @@ class MotionDetector
         //cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
         algorithm_mode = FOFA; //intializes the algorithm to FOFA
 
+        bsmog = cv::createBackgroundSubtractorMOG2();
     }
 
     bool switch_callback(assignment_5::model_msg::Request &req,
@@ -106,7 +110,7 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             break;
         case MOG2:
             bsmog->apply(cv_ptr->image, fg_mask);
-            cv::imshow(FLOW_WINDOW, fg_mask);
+            cv::imshow(MOG2_WINDOW, fg_mask);
             break;
     }
 
