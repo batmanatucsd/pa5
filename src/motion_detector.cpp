@@ -96,27 +96,21 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 
                 //blur the image before applying optical flow
                 cv::GaussianBlur(cv_ptr->image, cv_ptr->image, cv::Size(7, 7), 7, BORDER_DEFAULT);
-
                 calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
-
                 cvtColor(prev, cflow, COLOR_GRAY2BGR);
                 uflow.copyTo(flow);
                 //draws arrows over the prev grayscale frames (cflow)
                 drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
                 imshow(FLOW_WINDOW_ARROWS, cflow);
-
                 cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
                 //populates the intensityMap with the binary image for flow
                 drawMotionIntensity(flow, intensityMap);
-
                 cv::Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(3,3), Point(-1,-1));
                 //remove white specks (noise)
                 erode(intensityMap, intensityMap, kernel, Point(-1,-1), 7);
                 //dilate what's left to help find blob of body
                 //dilate(intensityMap, intensityMap, kernel, Point(-1,-1), 30);
-
                 findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-
                 //function I wrote
                 drawRectFromContours(intensityMap, contours);
 
