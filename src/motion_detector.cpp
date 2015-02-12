@@ -18,7 +18,7 @@
 
 #define FLOW_WINDOW_ARROWS "Flow Arrows"
 #define FLOW_WINDOW_BINARY "Flow Binary"
-#define THRESH_MAG 25 //threshold for displaying farneback optical flow as a binary image
+#define THRESH_MAG 1 //threshold for displaying farneback optical flow as a binary image
 
 using namespace cv;
 
@@ -87,6 +87,10 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
   {
     case FOFA: 
         if (!prev.empty()){
+
+            //blur the image before applying optical flow
+            cv::GaussianBlur(cv_ptr->image, cv_ptr->image, cv::Size(7, 7), 7, BORDER_DEFAULT);
+
             calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
 
             cvtColor(prev, cflow, COLOR_GRAY2BGR);
@@ -160,7 +164,7 @@ static void drawMotionIntensity(const Mat& flow, Mat& A)
 
             //A.data[A.step[0]*i + A.step[1]*j + 0] = sqrt(x*x + y*y);
             if (mag > THRESH_MAG){
-                A.data[A.step[0]*i + A.step[1]*j + 0] = mag;
+                A.data[A.step[0]*i + A.step[1]*j + 0] = 255;
             }
         }
     }
