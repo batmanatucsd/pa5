@@ -29,6 +29,8 @@ static void drawMotionIntensity(const Mat& flow, Mat& A);
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
         double, const Scalar& color);
 
+static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> > &contours);
+
 class MotionDetector
 {
     image_transport::ImageTransport it;
@@ -46,9 +48,9 @@ class MotionDetector
     //cv::Ptr<cv::BackgroundSubtractor> bsmog;
     cv::BackgroundSubtractorMOG2 bsmog;
     cv::Mat fg_mask;
-    std::vector<std::vector<cv::Point> > contours;↲
+    std::vector<std::vector<cv::Point> > contours;
 
-        void callback_crop(const sensor_msgs::ImageConstPtr& msg);
+    void callback_crop(const sensor_msgs::ImageConstPtr& msg);
 
     public:
     MotionDetector(ros::NodeHandle nh) : it(nh)
@@ -107,9 +109,19 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
                 //populates the intensityMap with the binary image for flow
                 drawMotionIntensity(flow, intensityMap);
 
+                cv::Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(3,3), Point(-1,-1));
                 //remove white specks (noise)
-                erode(intensityMap, intensityMap, Mat(), Point(-1,-1), 5);
-                dilate(intensityMap, intensityMap, Mat(), Point(-1,-1), 25);
+                erode(intensityMap, intensityMap, kernel, Point(-1,-1), 7);
+                //dilate what's left to help find blob of body
+                //dilate(intensityMap, intensityMap, kernel, Point(-1,-1), 30);
+
+                findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+
+                //function I wrote
+                drawRectFromContours(intensityMap, contours);
+
+                //drawContours(intensityMap, contours, -1, cv::Scalar(0,0,255), 3);
+                //rectangle(intensityMap, Point(5, 5), Point(100,100), Scalar(255,255,255), 5);
 
                 imshow(FLOW_WINDOW_BINARY, intensityMap);
 
@@ -118,7 +130,6 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             }
             break;
         case MOG2:
-            contours.clear();
             bsmog(cv_ptr->image, fg_mask, -1);
             bsmog.set("nmixtures", 3);
             bsmog.set("detectShadows", 1);
@@ -130,6 +141,8 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             cv::waitKey(1);
             break;
     }
+    
+    contours.clear();
     prev = cv_ptr->image.clone();
     image_pub.publish(cv_ptr->toImageMsg());
 }
@@ -172,6 +185,46 @@ static void drawMotionIntensity(const Mat& flow, Mat& A)
     }
 }
 
+static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> > &contours)
+{
+    //only draw rectangle on first contour
+    std::vector<Point> contour = contours.front();
+    int maxSize = 0;
+
+    //find the largest contour
+    for (std::vector<std::vector<Point> >::iterator it = contours.begin() ; it != contours.end(); ++it){
+        if (it->size() > maxSize){
+            contour = *it;
+            maxSize = it->size();
+        }
+    }
+
+    int minX = INT_MAX;
+    int maxX = 0;
+    int minY = INT_MAX;
+    int maxY = 0;
+
+    Point point;
+    for (int i = 0; i < contour.size(); i++){
+        point = contour.at(i);
+
+        if (point.x < minX){
+            minX = point.x;
+        }
+        if (point.x > maxX){
+            maxX = point.x;
+        }
+        if (point.y < minY){
+            minY = point.y;
+        }
+        if (point.y > maxY){
+            maxY = point.y;
+        }
+    }
+
+    rectangle(frame, Point(minX, minY), Point(maxX,maxY), Scalar(255,255,255), 5);
+
+}
 int main(int argc, char **argv) {
     ros::init(argc, argv, "motion_detector");
     ros::NodeHandle n;
