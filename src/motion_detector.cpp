@@ -56,8 +56,6 @@ class MotionDetector
 
         //cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
         algorithm_mode = FOFA; //intializes the algorithm to FOFA
-
-        //bsmog = cv::createBackgroundSubtractorMOG2();
     }
 
     bool switch_callback(assignment_5::model_msg::Request &req,
@@ -76,40 +74,39 @@ class MotionDetector
 
 void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 {
-  cv_bridge::CvImagePtr cv_ptr;
-  try
-  {   //copy the data //TODO maybe change back to copy
-    cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
-  }
-  catch (cv_bridge::Exception& e)
-  {
-    ROS_ERROR("cv_bridge exception: %s", e.what());
-    return;
-  }
+    cv_bridge::CvImagePtr cv_ptr;
+    try
+    {   //copy the data //TODO maybe change back to copy
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
 
+    switch (algorithm_mode)
+    {
+        case FOFA:
+            if (!prev.empty()){
 
-  switch (algorithm_mode)
-  {
-    case FOFA: 
-        if (!prev.empty()){
+                //blur the image before applying optical flow
+                cv::GaussianBlur(cv_ptr->image, cv_ptr->image, cv::Size(7, 7), 7, BORDER_DEFAULT);
 
-            //blur the image before applying optical flow
-            cv::GaussianBlur(cv_ptr->image, cv_ptr->image, cv::Size(7, 7), 7, BORDER_DEFAULT);
+                calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
 
-            calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
+                cvtColor(prev, cflow, COLOR_GRAY2BGR);
+                uflow.copyTo(flow);
+                //draws arrows over the prev grayscale frames (cflow)
+                drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
+                imshow(FLOW_WINDOW_ARROWS, cflow);
 
-            cvtColor(prev, cflow, COLOR_GRAY2BGR);
-            uflow.copyTo(flow);
-            //draws arrows over the prev grayscale frames (cflow)
-            drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
-            imshow(FLOW_WINDOW_ARROWS, cflow);
-            
-            cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
-            //populates the intensityMap with the binary image for flow
-            drawMotionIntensity(flow, intensityMap);
-            imshow(FLOW_WINDOW_BINARY, intensityMap);
+                cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
+                //populates the intensityMap with the binary image for flow
+                drawMotionIntensity(flow, intensityMap);
+                imshow(FLOW_WINDOW_BINARY, intensityMap);
 
-            cv::waitKey(1);
+                cv::waitKey(1);
 
             }
             break;
@@ -119,18 +116,6 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             cv::waitKey(1);
             break;
     }
-
-    /*
-       if (doCrop)
-       {
-    //create the region to crop
-    cv::Rect roi((cv_ptr->image.cols)/2 - CROP_WIDTH/2, (cv_ptr->image.rows)/2 - CROP_HEIGHT/2, CROP_WIDTH, CROP_HEIGHT);
-
-    //rewrite the data with the cropped data
-    cv_ptr->image = cv_ptr->image(roi);
-    }
-    */
-
     prev = cv_ptr->image.clone();
     image_pub.publish(cv_ptr->toImageMsg());
 }
@@ -179,7 +164,7 @@ int main(int argc, char **argv) {
 
     MotionDetector motion_detector(n);
 
-    ros::ServiceServer switch_service = n.advertiseService("model_switch", 
+    ros::ServiceServer switch_service = n.advertiseService("model_switch",
             &MotionDetector::switch_callback, &motion_detector);
     ros::spin();
 
