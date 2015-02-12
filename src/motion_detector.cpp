@@ -78,10 +78,10 @@ class MotionDetector
 
 void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 {
-    cv_bridge::CvImagePtr cv_ptr;
+    cv_bridge::CvImagePtr frame_original_ptr;
     try
     {   //copy the data //TODO maybe change back to copy
-        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
+        frame_original_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -89,15 +89,19 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
         return;
     }
 
+    //convert to grayscale and make a copy
+    Mat frame_gray = frame_original_ptr->image;
+    cvtColor(frame_gray, frame_gray, CV_RGB2GRAY);
+
     switch (algorithm_mode)
     {
         case FOFA:
             if (!prev.empty()){
 
                 //blur the image before applying optical flow
-                cv::GaussianBlur(cv_ptr->image, cv_ptr->image, cv::Size(7, 7), 7, BORDER_DEFAULT);
+                cv::GaussianBlur(frame_gray, frame_gray, cv::Size(7, 7), 7, BORDER_DEFAULT);
 
-                calcOpticalFlowFarneback(prev, cv_ptr->image, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
+                calcOpticalFlowFarneback(prev, frame_gray, uflow, 0.5, 2, 3, 2, 5, 1.1, 0);
 
                 cvtColor(prev, cflow, COLOR_GRAY2BGR);
                 uflow.copyTo(flow);
@@ -117,8 +121,8 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 
                 findContours(intensityMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
 
-                //function I wrote
-                drawRectFromContours(intensityMap, contours);
+                //draw rectanle on the original image
+                drawRectFromContours(frame_original_ptr->image, contours);
 
                 //drawContours(intensityMap, contours, -1, cv::Scalar(0,0,255), 3);
                 //rectangle(intensityMap, Point(5, 5), Point(100,100), Scalar(255,255,255), 5);
@@ -130,21 +134,21 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
             }
             break;
         case MOG2:
-            bsmog(cv_ptr->image, fg_mask, -1);
+            bsmog(frame_gray, fg_mask, -1);
             bsmog.set("nmixtures", 3);
             bsmog.set("detectShadows", 1);
             cv::erode(fg_mask,fg_mask,cv::Mat());
             cv::dilate(fg_mask,fg_mask,cv::Mat());
             cv::findContours(fg_mask,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE);
-            cv::drawContours(cv_ptr->image,contours,-1,cv::Scalar(0,0,255),2);
+            cv::drawContours(frame_gray,contours,-1,cv::Scalar(0,0,255),2);
             cv::imshow(MOG2_WINDOW, fg_mask);
             cv::waitKey(1);
             break;
     }
     
     contours.clear();
-    prev = cv_ptr->image.clone();
-    image_pub.publish(cv_ptr->toImageMsg());
+    prev = frame_gray.clone();
+    image_pub.publish(frame_original_ptr->toImageMsg());
 }
 
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
@@ -222,7 +226,7 @@ static void drawRectFromContours(Mat& frame, std::vector<std::vector<cv::Point> 
         }
     }
 
-    rectangle(frame, Point(minX, minY), Point(maxX,maxY), Scalar(255,255,255), 5);
+    rectangle(frame, Point(minX, minY), Point(maxX,maxY), Scalar(0,0,255), 5);
 
 }
 int main(int argc, char **argv) {
