@@ -79,8 +79,7 @@ void MotionDetector::callback_image(const sensor_msgs::ImageConstPtr& msg)
     cv_bridge::CvImagePtr frame_original_ptr;
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE,
             cv::Size(3,3), cv::Point(-1,-1));
-    // Reset Contours
-    contours.clear();
+    std::string label;
 
     try {
         frame_original_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -119,7 +118,8 @@ void MotionDetector::callback_image(const sensor_msgs::ImageConstPtr& msg)
                 //rectangle(intensityMap, Point(5, 5), Point(100,100), Scalar(255,255,255), 5);
                 //imshow(FLOW_WINDOW_BINARY, intensityMap);
             }
-            //label = LABEL_FOFA;
+            label.clear();
+            label.append(LABEL_FOFA);
             break;
         case MOG2:
             bsmog(frame_gray, fg_mask, -1);
@@ -135,19 +135,23 @@ void MotionDetector::callback_image(const sensor_msgs::ImageConstPtr& msg)
                 cv::rectangle(frame_original_ptr->image, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(255, 0, 0), 2, 8, 0 );
             }
             //cv::imshow(MOG2_WINDOW, fg_mask);
-            //label = LABEL_MOG2;
+            label.clear();
+            label.append(LABEL_MOG2);
             break;
     }
     cv::waitKey(1);
 
     // Add algorithm label to the image
-    //rectangle(frame_original_ptr->image, cv::Point(10, 2), cv::Point(100,20),
-    //        cv::Scalar(255,255,255), -1);
-    //putText(cv_ptr->image, label, cv::Point(15, 15),
-    //        cv::FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
+    rectangle(frame_original_ptr->image, cv::Point(10, 10), cv::Point(150,50),
+            cv::Scalar(255,255,255), -1);
+    putText(frame_original_ptr->image, label, cv::Point(25, 45),
+            cv::FONT_HERSHEY_SIMPLEX, 1.5 , cv::Scalar(0,0,0));
 
     prev = frame_gray.clone();
     image_pub.publish(frame_original_ptr->toImageMsg());
+
+    // Reset Contours
+    contours.clear();
 }
 
 static void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step,
@@ -186,6 +190,7 @@ static void drawMotionIntensity(const cv::Mat& flow, cv::Mat& A)
 
 static void drawRectFromContours(cv::Mat& frame, std::vector<std::vector<cv::Point> > &contours)
 {
+    if (contours.empty()) { return; }
     //only draw rectangle on first contour
     std::vector<cv::Point> contour = contours.front();
     int maxSize = 0;
