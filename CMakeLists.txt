@@ -87,7 +87,7 @@ generate_messages(
 catkin_package(
     #  INCLUDE_DIRS include
     #  LIBRARIES assignment_5
-    #  CATKIN_DEPENDS cv_bridge roscpp std_msgs
+    #  CATKIN_DEPENDS message_runtime roscpp std_msgs cv_bridge
     #  DEPENDS system_lib
     )
 
@@ -116,20 +116,18 @@ add_executable(motion_detector src/motion_detector.cpp)
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(assignment_5_node assignment_5_generate_messages_cpp)
-add_dependencies(motion_mode_keyboard motion_mode_keyboard_generated_messages_cpp)
-add_dependencies(motion_detector src/motion_detector)
+add_dependencies(motion_mode_keyboard std_msgs)
+add_dependencies(motion_detector motion_mode_keyboard)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(assignment_5_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(motion_mode_keyboard
+target_link_libraries(motion_mode_keyboard ${catkin_LIBRARIES})
+target_link_libraries(motion_detector
+    ${OpenCV_INCLUDE_DIRS}
     ${catkin_LIBRARIES}
     )
-target_link_libraries(motion_detector
-    ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
-    )
-
 
 #############
 ## Install ##
