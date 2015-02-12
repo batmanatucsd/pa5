@@ -16,7 +16,9 @@
 #define FOFA 91 // Key code
 #define MOG2 93 // Key code
 
-#define FLOW_WINDOW "flow"
+#define FLOW_WINDOW_ARROWS "Flow Arrows"
+#define FLOW_WINDOW_BINARY "Flow Binary"
+#define THRESH_MAG 25 //threshold for displaying farneback optical flow as a binary image
 
 using namespace cv;
 
@@ -48,7 +50,7 @@ class MotionDetector
       image_sub = it.subscribe("/camera/image_raw", 1, &MotionDetector::callback_crop, this);
       image_pub = it.advertise("/camera/image_raw_cropped", 1);
 
-      cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
+      //cv::namedWindow(FLOW_WINDOW, cv::WINDOW_AUTOSIZE);
       algorithm_mode = FOFA; //intializes the algorithm to FOFA
 
     }
@@ -89,15 +91,17 @@ void MotionDetector::callback_crop(const sensor_msgs::ImageConstPtr& msg)
 
             cvtColor(prev, cflow, COLOR_GRAY2BGR);
             uflow.copyTo(flow);
+            //draws arrows over the prev grayscale frames (cflow)
             drawOptFlowMap(flow, cflow, 16, 1.5, Scalar(0, 255, 0));
+            imshow(FLOW_WINDOW_ARROWS, cflow);
             
-            //cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
+            cv::Mat intensityMap = Mat::zeros(flow.rows, flow.cols, CV_8U);
+            //populates the intensityMap with the binary image for flow
+            drawMotionIntensity(flow, intensityMap);
+            imshow(FLOW_WINDOW_BINARY, intensityMap);
 
-            //drawMotionIntensity(flow, intensityMap);
             cv::waitKey(1);
 
-            imshow(FLOW_WINDOW, cflow);
-            //imshow(FLOW_WINDOW, intensityMap);
         }
         break;
     
@@ -137,25 +141,29 @@ static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
 
 static void drawMotionIntensity(const Mat& flow, Mat& A)
 {
-    for(int i = 0; i < flow.rows; i++)
+    for(int i = 0; i < flow.rows; i++) {
         for(int j = 0; j < flow.cols; j++)
         {
-            //const Point2f& pointVector = flow.at<Point2f>(i, j);
-
+            const Point2f& v = flow.at<Point2f>(i, j);
+            const int mag = sqrt(v.x*v.x + v.y*v.y);
             //line(cflowmap, Point(x,y), Point(cvRound(x+fxy.x), cvRound(y+fxy.y)),
             //     color);
             //circle(cflowmap, Point(x,y), 2, color, -1);
 
-            int x = flow.data[flow.step[0]*i + flow.step[1]*j + 0];
-            int y = flow.data[flow.step[0]*i + flow.step[1]*j + 1];
+            //int x = flow.data[flow.step[0]*i + flow.step[1]*j + 0];
+            //int y = flow.data[flow.step[0]*i + flow.step[1]*j + 1];
 
             //std::cout << "x: " << x << std::endl;
             //std::cout << "y: " << y << std::endl;
 
 
 
-            A.data[A.step[0]*i + A.step[1]*j + 0] = sqrt(x*x + y*y);
+            //A.data[A.step[0]*i + A.step[1]*j + 0] = sqrt(x*x + y*y);
+            if (mag > THRESH_MAG){
+                A.data[A.step[0]*i + A.step[1]*j + 0] = mag;
+            }
         }
+    }
 }
 
 int main(int argc, char **argv) {
